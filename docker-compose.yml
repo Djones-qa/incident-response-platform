@@ -1,0 +1,109 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --save 60 1
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - incident-net
+
+  alert-receiver:
+    build:
+      context: ./alert-receiver
+      dockerfile: Dockerfile
+    container_name: alert-receiver
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - RUNBOOK_EXECUTOR_URL=http://runbook-executor:3001
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - incident-net
+    restart: unless-stopped
+
+  runbook-executor:
+    build:
+      context: ./runbook-executor
+      dockerfile: Dockerfile
+    container_name: runbook-executor
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - REDIS_URL=redis://redis:6379
+      - DRY_RUN=${DRY_RUN:-true}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - incident-net
+    restart: unless-stopped
+
+  postmortem-generator:
+    build:
+      context: ./postmortem-generator
+      dockerfile: Dockerfile
+    container_name: postmortem-generator
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - incident-net
+    restart: unless-stopped
+
+  mock-webhook-sender:
+    build:
+      context: ./mock-webhook-sender
+      dockerfile: Dockerfile
+    container_name: mock-webhook-sender
+    environment:
+      - ALERT_RECEIVER_URL=http://alert-receiver:3000
+    depends_on:
+      alert-receiver:
+        condition: service_healthy
+    networks:
+      - incident-net
+    profiles:
+      - testing
+
+networks:
+  incident-net:
+    driver: bridge
+
+volumes:
+  redis-data:

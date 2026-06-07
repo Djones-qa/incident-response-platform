@@ -1,0 +1,21 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: alert-receiver-pdb
+  namespace: incident-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: alert-receiver
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: runbook-executor-pdb
+  namespace: incident-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: runbook-executor

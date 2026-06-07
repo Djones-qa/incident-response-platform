@@ -1,0 +1,125 @@
+# Default deny-all ingress and egress for the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: incident-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Allow alert-receiver to receive external webhooks and talk to Redis + runbook-executor
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-alert-receiver
+  namespace: incident-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: alert-receiver
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    - podSelector:
+        matchLabels:
+          app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    - podSelector:
+        matchLabels:
+          app: runbook-executor
+      ports:
+        - protocol: TCP
+          port: 3001
+    # Allow egress to Slack webhook (external HTTPS)
+    - ports:
+        - protocol: TCP
+          port: 443
+---
+# Allow runbook-executor to receive from alert-receiver, talk to Redis, and reach Kubernetes API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-runbook-executor
+  namespace: incident-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: runbook-executor
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - podSelector:
+        matchLabels:
+          app: alert-receiver
+      ports:
+        - protocol: TCP
+          port: 3001
+  egress:
+    - podSelector:
+        matchLabels:
+          app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow egress to Kubernetes API server
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+---
+# Allow postmortem-generator to receive HTTP and talk to Redis only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postmortem-generator
+  namespace: incident-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: postmortem-generator
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 3002
+  egress:
+    - podSelector:
+        matchLabels:
+          app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# Allow Redis to receive connections from platform services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis
+  namespace: incident-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: incident-platform
+      ports:
+        - protocol: TCP
+          port: 6379
