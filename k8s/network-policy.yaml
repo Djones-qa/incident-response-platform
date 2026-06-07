@@ -28,15 +28,17 @@ spec:
         - protocol: TCP
           port: 3000
   egress:
-    - podSelector:
-        matchLabels:
-          app: redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
       ports:
         - protocol: TCP
           port: 6379
-    - podSelector:
-        matchLabels:
-          app: runbook-executor
+    - to:
+        - podSelector:
+            matchLabels:
+              app: runbook-executor
       ports:
         - protocol: TCP
           port: 3001
@@ -59,16 +61,18 @@ spec:
     - Ingress
     - Egress
   ingress:
-    - podSelector:
-        matchLabels:
-          app: alert-receiver
+    - from:
+        - podSelector:
+            matchLabels:
+              app: alert-receiver
       ports:
         - protocol: TCP
           port: 3001
   egress:
-    - podSelector:
-        matchLabels:
-          app: redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
       ports:
         - protocol: TCP
           port: 6379
@@ -97,9 +101,10 @@ spec:
         - protocol: TCP
           port: 3002
   egress:
-    - podSelector:
-        matchLabels:
-          app: redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
       ports:
         - protocol: TCP
           port: 6379
@@ -117,9 +122,10 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    - podSelector:
-        matchLabels:
-          app.kubernetes.io/part-of: incident-platform
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: incident-platform
       ports:
         - protocol: TCP
           port: 6379
